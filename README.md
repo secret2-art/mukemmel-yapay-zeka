@@ -1,0 +1,1 @@
+# mukemmel-yapay-zeka
