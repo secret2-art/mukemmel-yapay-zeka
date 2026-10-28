@@ -1,45 +1,50 @@
 import gradio as gr
 from transformers import pipeline
 
-print("🚀 Sohbet yapay zekası yükleniyor...")
+print("🚀 Akıllı sohbet asistanı yükleniyor, lütfen bekleyin...")
 
-# Microsoft'un sohbet modelini yüklüyoruz
-chatbot_pipeline = pipeline("text-generation", model="microsoft/DialoGPT-medium")
+# Kararlı ve hızlı bir metin üretim modeli yüklüyoruz
+generator = pipeline("text-generation", model="distilgpt2")
 
-def ai_sohbet(kullanici_mesaji, tarihsel_gecmis):
-    if not kullanici_mesaji or not kullanici_mesaji.strip():
-        return "", tarihsel_gecmis
+def ai_cevapla(mesaj, gecmis):
+    if not mesaj or not mesaj.strip():
+        return "Lütfen bir şeyler yaz."
     
-    if tarihsel_gecmis is None:
-        tarihsel_gecmis = []
-        
+    # Sohbet formatını belirleyelim
+    prompt = f"Human: {mesaj}\nAI:"
+    
     try:
-        # Modele yanıt üretme
-        cevap = chatbot_pipeline(kullanici_mesaji, max_length=100, num_return_sequences=1)
-        bot_yaniti = cevap[0]['generated_text']
+        # Yapay zekanın yanıt üretmesi
+        sonuc = generator(
+            prompt, 
+            max_new_tokens=60, 
+            do_sample=True, 
+            temperature=0.7,
+            pad_token_id=50256
+        )
         
-        # Güncel Gradio Chatbot formatı: liste içinde sözlükler veya listeler (role ve content)
-        tarihsel_gecmis.append({"role": "user", "content": kullanici_mesaji})
-        tarihsel_gecmis.append({"role": "assistant", "content": bot_yaniti})
+        uretilen_metin = sonuc[0]['generated_text']
         
-        return "", tarihsel_gecmis
+        # Sadece AI'ın verdiği cevabı ayıklayalım
+        if "AI:" in uretilen_metin:
+            cevap = uretilen_metin.split("AI:")[-1].strip()
+            # Eğer alt satıra geçerse ilk cümleyi al
+            cevap = cevap.split("\n")[0]
+        else:
+            cevap = "Anladım, başka nasıl yardımcı olabilirim?"
+            
+        return cevap if cevap else "Bu konuda söyleyecek başka bir şeyim yok."
+        
     except Exception as e:
-        tarihsel_gecmis.append({"role": "user", "content": kullanici_mesaji})
-        tarihsel_gecmis.append({"role": "assistant", "content": f"Bir hata oluştu: {str(e)}"})
-        return "", tarihsel_gecmis
+        return f"Bir hata oluştu: {str(e)}"
 
-# Gradio Arayüzü
-with gr.Blocks(theme=gr.themes.Soft()) as demo:
-    gr.Markdown("# 🤖 GitHub Akıllı Sohbet Asistanı")
-    gr.Markdown("Bu arayüz üzerinden yapay zeka ile doğrudan yazışabilir ve sohbet edebilirsin.")
-    
-    chatbot_arayuz = gr.Chatbot(label="Sohbet Geçmişi, type=\"messages\"")
-    mesaj_kutusu = gr.Textbox(label="Mesajını yaz...", placeholder="Merhaba, nasılsın?")
-    
-    gonder_btn = gr.Button("Gönder", variant="primary")
-    
-    gonder_btn.click(ai_sohbet, inputs=[mesaj_kutusu, chatbot_arayuz], outputs=[mesaj_kutusu, chatbot_arayuz])
-    mesaj_kutusu.submit(ai_sohbet, inputs=[mesaj_kutusu, chatbot_arayuz], outputs=[mesaj_kutusu, chatbot_arayuz])
+# Gradio'nun yerleşik, hatasız sohbet arayüzü
+demo = gr.ChatInterface(
+    fn=ai_cevapla,
+    title="🤖 GitHub Gerçek Zamanlı Yapay Zeka Asistanı",
+    description="Bu arayüz mesajlarını tekrarlamaz, doğrudan yapay zeka mantığıyla yanıt üretir.",
+    theme=gr.themes.Soft()
+)
 
 if __name__ == "__main__":
     demo.launch(server_name="0.0.0.0", server_port=7860)
