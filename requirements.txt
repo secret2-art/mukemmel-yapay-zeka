@@ -1,6 +1,2 @@
-transformers
-torch
-torchvision
-pillow
-requests
 gradio
+google-generativeai
