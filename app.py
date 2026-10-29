@@ -1,50 +1,58 @@
 import gradio as gr
-from transformers import pipeline
+import google.generativeai as genai
 
-print("🚀 Akıllı sohbet asistanı yükleniyor, lütfen bekleyin...")
+# 1. Google Gemini API Yapılandırması (Anahtarın doğrudan eklenmiştir)
+API_KEY = "AQ.Ab8RN6IQaLJiSwjH3z1sPvf8N7bTepmX-fnlxLmW8apu0pKaxQ"
 
-# Kararlı ve hızlı bir metin üretim modeli yüklüyoruz
-generator = pipeline("text-generation", model="distilgpt2")
+genai.configure(api_key=API_KEY)
 
-def ai_cevapla(mesaj, gecmis):
-    if not mesaj or not mesaj.strip():
-        return "Lütfen bir şeyler yaz."
+# 2. Dünyanın en hızlı ve güçlü modellerinden biri
+model = genai.GenerativeModel('gemini-1.5-flash')
+
+# Sohbet hafızasını başlatıyoruz
+chat_session = model.start_chat(history=[])
+
+def yapay_zeka_cevapla(kullanici_mesaji, tarihsel_gecmis):
+    if not kullanici_mesaji or not kullanici_mesaji.strip():
+        return "", tarihsel_gecmis
     
-    # Sohbet formatını belirleyelim
-    prompt = f"Human: {mesaj}\nAI:"
-    
+    if tarihsel_gecmis is None:
+        tarihsel_gecmis = []
+        
     try:
-        # Yapay zekanın yanıt üretmesi
-        sonuc = generator(
-            prompt, 
-            max_new_tokens=60, 
-            do_sample=True, 
-            temperature=0.7,
-            pad_token_id=50256
-        )
+        # Gemini modeline mesajı gönderip yanıt alıyoruz
+        response = chat_session.send_message(kullanici_mesaji)
+        bot_yaniti = response.text
         
-        uretilen_metin = sonuc[0]['generated_text']
+        # Gradio modern sohbet formatına ekleme
+        tarihsel_gecmis.append({"role": "user", "content": kullanici_mesaji})
+        tarihsel_gecmis.append({"role": "assistant", "content": bot_yaniti})
         
-        # Sadece AI'ın verdiği cevabı ayıklayalım
-        if "AI:" in uretilen_metin:
-            cevap = uretilen_metin.split("AI:")[-1].strip()
-            # Eğer alt satıra geçerse ilk cümleyi al
-            cevap = cevap.split("\n")[0]
-        else:
-            cevap = "Anladım, başka nasıl yardımcı olabilirim?"
-            
-        return cevap if cevap else "Bu konuda söyleyecek başka bir şeyim yok."
-        
+        return "", tarihsel_gecmis
+    
     except Exception as e:
-        return f"Bir hata oluştu: {str(e)}"
+        hata_mesaji = f"⚠️ Hata: {str(e)}"
+        tarihsel_gecmis.append({"role": "user", "content": kullanici_mesaji})
+        tarihsel_gecmis.append({"role": "assistant", "content": hata_mesaji})
+        return "", tarihsel_gecmis
 
-# Gradio'nun yerleşik, hatasız sohbet arayüzü
-demo = gr.ChatInterface(
-    fn=ai_cevapla,
-    title="🤖 GitHub Gerçek Zamanlı Yapay Zeka Asistanı",
-    description="Bu arayüz mesajlarını tekrarlamaz, doğrudan yapay zeka mantığıyla yanıt üretir.",
-    theme=gr.themes.Soft()
-)
+# Gradio ile Şık ve Profesyonel Arayüz
+with gr.Blocks(theme=gr.themes.Soft()) as demo:
+    gr.Markdown("# 🧠 Gerçek ve Sınırsız GitHub Yapay Zeka Asistanı")
+    gr.Markdown("Bu asistan doğrudan **Google Gemini** altyapısıyla çalışır ve sorduğun her soruya eksiksiz, uzun ve detaylı yanıtlar verir.")
+    
+    chatbot_arayuz = gr.Chatbot(label="Sohbet Paneli", type="messages", height=500)
+    
+    with gr.Row():
+        mesaj_kutusu = gr.Textbox(
+            label="Yapay zekaya ne sormak istiyorsun?", 
+            placeholder="Örn: Bana uzun bir Python kodu yaz ve açıkla...", 
+            scale=4
+        )
+        gonder_btn = gr.Button("Gönder", variant="primary", scale=1)
+    
+    gonder_btn.click(yapay_zeka_cevapla, inputs=[mesaj_kutusu, chatbot_arayuz], outputs=[mesaj_kutusu, chatbot_arayuz])
+    mesaj_kutusu.submit(yapay_zeka_cevapla, inputs=[mesaj_kutusu, chatbot_arayuz], outputs=[mesaj_kutusu, chatbot_arayuz])
 
 if __name__ == "__main__":
     demo.launch(server_name="0.0.0.0", server_port=7860)
